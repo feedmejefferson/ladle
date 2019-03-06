@@ -1,8 +1,9 @@
 import admin from 'firebase-admin';
 import fs from 'fs';
 import minimist from 'minimist';
-import { Observable, bindNodeCallback, of } from 'rxjs';
-import { map, tap, switchMap, flatMap } from 'rxjs/operators';
+import { Observable, bindNodeCallback, of, range, pipe } from 'rxjs';
+import { map, tap, switchMap, flatMap, share, zip, delay } from 'rxjs/operators';
+import { convert } from './convert-legacy';
 
 
 var args = minimist(process.argv.slice(2), {
@@ -36,11 +37,11 @@ if (command==='export') {
         .subscribe()
     }))
     .catch(err => console.log(err));
-} else {
-    filesInDir$(target).pipe(
+} else if (command==='import') {
+    filesInDir$(source).pipe(
         flatMap(x => x),   // flatten the list of files to individual files
     ).subscribe(id => of(id).pipe(  // create a new closure so we can hang on to the file name to use as an id
-        map(f => target + '/' + f),   // get the full relative path to the file
+        map(f => source + '/' + f),   // get the full relative path to the file
         flatMap(f => readFile$(f)),  // unnest the new observable created by readFile$
         map((b => JSON.parse(b.toString()))),  // convert the buffer to a string and parse it
         ).subscribe(data => {
@@ -49,5 +50,6 @@ if (command==='export') {
             .catch(error => console.log(error));
         }));
 
-}
-
+} else if (command==='convert') {
+    convert(source, target);
+} 
