@@ -1,8 +1,8 @@
 import { FoodPhoto } from './food-photo';
 
 import fs from 'fs';
-import { bindNodeCallback, pipe } from 'rxjs';
-import { map, tap, flatMap, take, share, zip } from 'rxjs/operators';
+import { bindNodeCallback, pipe, range, of, forkJoin } from 'rxjs';
+import { map, tap, flatMap, take, share, zip, delay } from 'rxjs/operators';
 import cheerio from 'cheerio';
 
 const filesInDir$ = bindNodeCallback(fs.readdir);
@@ -17,12 +17,14 @@ export function convert(source: string, target: string) {
         flatMap(f => readFile$(f)),  // unnest the new observable created by readFile$
         map((b => cheerio.load(b.toString()))),  // convert the buffer to a string and parse it
         map($ => ({
-          author: $('a:nth-of-type(2)').attr('href'),
-          authorProfileUrl: $('a:nth-of-type(2)').text(),
-          originTitle: $('a:nth-of-type(1)').text(),
-          originUrl: $('a:nth-of-type(1)').attr('href'),  
-          license: $('a:nth-of-type(3)').text(),
-          licenseUrl: $('a:nth-of-type(3)').attr('href')  
+            title: $('a:nth-of-type(1)').text(),
+            description: $('a:nth-of-type(1)').text(),
+            author: $('a:nth-of-type(2)').attr('href'),
+            authorProfileUrl: $('a:nth-of-type(2)').text(),
+            originTitle: $('a:nth-of-type(1)').text(),
+            originUrl: $('a:nth-of-type(1)').attr('href'),  
+            license: $('a:nth-of-type(3)').text(),
+            licenseUrl: $('a:nth-of-type(3)').attr('href')  
         })),
     );
 
@@ -31,36 +33,28 @@ export function convert(source: string, target: string) {
         map(img => source + '/tags/' + img + '.txt'),   // map img file name to attribution file path
         flatMap(f => readFile$(f)),  // unnest the new observable created by readFile$
         map(buf => buf.toString().trim().toLowerCase().split(',')),  // convert the buffer to a string and parse it
-        map(arr => ({foods: [ { secondaryFoodTags: arr }]}))
+        map(arr => ({ containsTags: arr }))
     );
 
     // define a pipe for returning an object with the image name itself
     const img = () => pipe(
-        map(img => ({image: img}))
-    );
+        map(img => ({id: img})),
 
-    /*
-      We don't really need to branch and merge three separate pipes in this case.
-      Instead we could simply create an object, decorate it with the image property
-      as the original input value, use that value to read attributions and decorate
-      the object accordingly, then do the same for the tags, but this seemed like a nice
-      pattern to play around with and maintain totally independent streams withouth having
-      to hang on to the original image file name in a separate closure.
-    */
+    );
 
     // spin through all the files and process them
-    const shareable$ = filesInDir$(source + '/images').pipe(
-        flatMap(x => x),   // flatten the list of files to individual files
-        share()  // multicast to all the pipes before zipping back together
-    );
-    
-    shareable$.pipe(
-        img(),
-        zip(shareable$.pipe(attribute()), shareable$.pipe(tag())),
-        map(arr => ({...arr[0], ...arr[1], ...arr[2]})), // merge the zipped objects
-    ).subscribe(
-        x => writeFile$(target + '/' + x.image, JSON.stringify(x)).subscribe()
-    );
-
-}
+    filesInDir$(source + '/images').pipe(
+        flatMap(x=>x),  // unnest the files
+        flatMap(x=>forkJoin(    // join up the attributes from different files
+            of(x).pipe(img()),
+            of(x).pipe(attribute()),
+            of(x).pipe(tag())
+        )),
+        map(arr => ({...arr[0], ...arr[1], ...arr[2]})), // merge the joined objects
+        take(10),
+        tap(x=>console.log(x))
+        ).subscribe(
+            x => writeFile$(target + '/' + x.id, JSON.stringify(x)).subscribe()
+        );
+    }
 
