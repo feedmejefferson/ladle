@@ -49,7 +49,26 @@ if (command==='export') {
             .then(x => console.log('success!', x))
             .catch(error => console.log(error));
         }));
-
+} else if (command==='split') {
+    // source is a file, target is a folder -- write out one file per object in array
+    console.log("split is running")
+    readFile$(source).pipe(
+        map(b => JSON.parse(b.toString())),
+        flatMap(items => of(...items)),
+    ).subscribe(item => {
+        writeFile$(target + '/' + item.id, JSON.stringify(item))
+        .subscribe()
+    });
+} else if (command==='associate') {
+    // source is a file, target is a file -- convert to associative array with nested id as key
+    readFile$(source).pipe(
+        map(b => JSON.parse(b.toString())),
+    ).subscribe(items => {
+        const newOb: any = {}
+        items.forEach((item: any) => {newOb[item.id]=item} );
+        writeFile$(target, JSON.stringify(newOb))
+        .subscribe()
+    });
 } else if (command==='convert') {
     convert(source, target);
 } 
