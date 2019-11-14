@@ -28,12 +28,25 @@ const db = admin.firestore();
 const filesInDir$ = bindNodeCallback(fs.readdir);
 const readFile$ = bindNodeCallback(fs.readFile);
 const writeFile$ = bindNodeCallback(fs.writeFile);
+const replacer = (key: any, value: any) => {
+    if (typeof value === "object" && value instanceof admin.firestore.Timestamp) {
+        return value.toDate().toISOString();
+    }
+    return value;
+}
+const tsRegex = /^\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+Z$/
+const reviver = (key: any, value: any) => {
+    if(typeof value === 'string' && value.match(tsRegex)) {
+        return admin.firestore.Timestamp.fromDate(new Date(value));
+    }
+    return value;
+}
 
 if (command==='export') {
     // TODO: it would be nice if we created the directory first if it didn't exist
     const results = db.collection(source).get()
     .then(collection => collection.forEach(item => {
-        writeFile$(target + '/' + item.id, JSON.stringify(item.data()))
+        writeFile$(target + '/' + item.id, JSON.stringify(item.data(),replacer))
         .subscribe()
     }))
     .catch(err => console.log(err));
@@ -43,7 +56,7 @@ if (command==='export') {
     ).subscribe(id => of(id).pipe(  // create a new closure so we can hang on to the file name to use as an id
         map(f => source + '/' + f),   // get the full relative path to the file
         flatMap(f => readFile$(f)),  // unnest the new observable created by readFile$
-        map((b => JSON.parse(b.toString()))),  // convert the buffer to a string and parse it
+        map((b => JSON.parse(b.toString(),reviver))),  // convert the buffer to a string and parse it
         ).subscribe(data => {
             const results = db.collection(target).doc(id).set(data)
             .then(x => console.log('success!', x))
