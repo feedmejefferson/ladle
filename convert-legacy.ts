@@ -18,14 +18,23 @@ export function convert(source: string, target: string) {
         map((b => cheerio.load(b.toString()))),  // convert the buffer to a string and parse it
         map($ => ({
             title: $('a:nth-of-type(1)').text(),
-            description: $('a:nth-of-type(1)').text(),
-            author: $('a:nth-of-type(2)').attr('href'),
-            authorProfileUrl: $('a:nth-of-type(2)').text(),
+            author: $('a:nth-of-type(2)').text(),
+            authorProfileUrl: $('a:nth-of-type(2)').attr('href'),
             originTitle: $('a:nth-of-type(1)').text(),
             originUrl: $('a:nth-of-type(1)').attr('href'),  
             license: $('a:nth-of-type(3)').text(),
             licenseUrl: $('a:nth-of-type(3)').attr('href')  
         })),
+        map(food => {
+            if(food.author==="PEXELS") {
+                delete food.author;
+                delete food.authorProfileUrl;
+                food.license = "Public Domain";
+                food.licenseUrl = "https://creativecommons.org/publicdomain/";
+            }
+            return food;
+
+        })
     );
 
     // define a pipe for extracting tags and reformatting to our tagged food array
@@ -51,8 +60,8 @@ export function convert(source: string, target: string) {
             of(x).pipe(tag())
         )),
         map(arr => ({...arr[0], ...arr[1], ...arr[2]})), // merge the joined objects
-        take(10),
-        tap(x=>console.log(x))
+//        take(1),
+//        tap(x=>console.log(x))
         ).subscribe(
             x => writeFile$(target + '/' + x.id, JSON.stringify(x)).subscribe()
         );
