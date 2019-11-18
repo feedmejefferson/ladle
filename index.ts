@@ -44,7 +44,12 @@ const reviver = (key: any, value: any) => {
 
 if (command==='export') {
     // TODO: it would be nice if we created the directory first if it didn't exist
-    const results = db.collection(source).get()
+    const results = db.collection(source)
+    // this works for selecting documents newer than the timestamp, but 
+    // we need to make it configurable, dynamic, and store the last high water mark 
+    // after each export
+    // .where('updated', '>', admin.firestore.Timestamp.fromDate(new Date('2019-09-01T00:00:00.000Z')))
+    .get()
     .then(collection => collection.forEach(item => {
         writeFile$(target + '/' + item.id, JSON.stringify(item.data(),replacer))
         .subscribe()
