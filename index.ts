@@ -4,7 +4,8 @@ import minimist from 'minimist';
 import { Observable, bindNodeCallback, of, range, pipe } from 'rxjs';
 import { map, tap, switchMap, flatMap, share, zip, delay } from 'rxjs/operators';
 import { convert } from './convert-legacy';
-
+// @ts-ignore 
+import stringify from 'json-stringify-deterministic';
 
 var args = minimist(process.argv.slice(2), {
       string: 'cert',
@@ -51,7 +52,7 @@ if (command==='export') {
     // .where('updated', '>', admin.firestore.Timestamp.fromDate(new Date('2019-09-01T00:00:00.000Z')))
     .get()
     .then(collection => collection.forEach(item => {
-        writeFile$(target + '/' + item.id, JSON.stringify(item.data(),replacer))
+        writeFile$(target + '/' + item.id, stringify(item.data(),{space:' ',replacer}))
         .subscribe()
     }))
     .catch(err => console.log(err));
@@ -74,7 +75,7 @@ if (command==='export') {
         map(b => JSON.parse(b.toString())),
         flatMap(items => of(...items)),
     ).subscribe(item => {
-        writeFile$(target + '/' + item.id, JSON.stringify(item))
+        writeFile$(target + '/' + item.id, stringify(item, {space:' '}))
         .subscribe()
     });
 } else if (command==='associate') {
@@ -84,7 +85,9 @@ if (command==='export') {
     ).subscribe(items => {
         const newOb: any = {}
         items.forEach((item: any) => {newOb[item.id]=item} );
-        writeFile$(target, JSON.stringify(newOb))
+        // wrap the entire object in a "data": map field so we can 
+        // easily exempt it from indexing in firestore
+        writeFile$(target, stringify({data: newOb},{space:' '}))
         .subscribe()
     });
 } else if (command==='convert') {
