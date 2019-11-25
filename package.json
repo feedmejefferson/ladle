@@ -1,10 +1,15 @@
 {
-  "name": "ladle",
-  "version": "1.0.0",
+  "name": "@feedmejefferson/ladle",
+  "repository": "https://github.com/feedmejefferson/ladle",
+  "version": "0.0.2",
   "description": "A simple tool for importing and exporting food data",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["/dist"],
+  "prepublish": "tsc",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
   },
   "author": "",
   "license": "ISC",
